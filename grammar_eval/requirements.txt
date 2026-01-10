@@ -4,3 +4,5 @@ openai
 spacy
 pyspellchecker
 python-dotenv
+urllib3
+streamlit

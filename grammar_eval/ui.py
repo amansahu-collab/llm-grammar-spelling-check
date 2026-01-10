@@ -3,6 +3,10 @@ import requests
 from core import evaluate_text  # local mode
 
 API_URL = "http://127.0.0.1:8000/evaluate"
+import urllib3
+ 
+# Disable SSL warnings
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 st.set_page_config(page_title="Grammar Evaluator", layout="wide")
 st.title("📝 Grammar & Spelling Evaluator")
