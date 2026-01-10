@@ -131,12 +131,17 @@ if st.button("Evaluate"):
             st.subheader("📊 Evaluation")
             st.metric("Final Score", data["score"])
 
-            st.markdown("### Grammar Errors")
-            if data["grammar_errors"]:
-                for g in data["grammar_errors"]:
-                    st.error(g["type"] if isinstance(g, dict) else g)
+            st.markdown("### Grammar & Usage Errors")
+
+            if data["diffs"]:
+                for d in data["diffs"]:
+                    if d["type"] in ("replace", "insert", "delete"):
+                        original = d["original"] or "(missing)"
+                        corrected = d["corrected"] or "(removed)"
+                        st.error(f"{original} → {corrected}")
             else:
-                st.success("No grammar errors")
+                st.success("No errors detected")
+            
 
             st.markdown("### Mechanics")
             if data["mechanics_errors"]:
