@@ -88,18 +88,19 @@ def sanity_check(text: str, diffs: list):
             }
         })
 
-    if time_direction == "past":
-        for t in doc:
-            if t.pos_ == "VERB" and t.tag_ in ("VB", "VBP", "VBZ"):
-                grammar_errors.append({
-                    "type": "tense_error",
-                    "span": {
-                        "start": t.idx,
-                        "end": t.idx + len(t.text),
-                        "text": t.text
-                    }
-                })
-                break
+    # ---- tense_error logic commented out ----
+    # if time_direction == "past":
+    #     for t in doc:
+    #         if t.pos_ == "VERB" and t.tag_ in ("VB", "VBP", "VBZ"):
+    #             grammar_errors.append({
+    #                 "type": "tense_error",
+    #                 "span": {
+    #                     "start": t.idx,
+    #                     "end": t.idx + len(t.text),
+    #                     "text": t.text
+    #                 }
+    #             })
+    #             break
 
     # ==================================================
     # 5. Mechanics (unchanged, low severity)
