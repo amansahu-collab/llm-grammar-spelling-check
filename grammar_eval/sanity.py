@@ -1,7 +1,15 @@
 import re
 import spacy
 
-nlp = spacy.load("en_core_web_sm")
+import spacy
+
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    # fallback (Streamlit Cloud safety)
+    from spacy.cli import download
+    download("en_core_web_sm")
+    nlp = spacy.load("en_core_web_sm")
 
 def sanity_check(text: str, diffs: list):
     grammar_errors = []
