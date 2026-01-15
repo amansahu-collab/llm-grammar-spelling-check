@@ -108,7 +108,7 @@ def sanity_check(text: str, diffs: list):
     if text and text[0].islower():
         mechanics_errors.append("capitalization")
 
-    if re.search(r"\s{2,}", text):
+    if re.search(r"[^\S\n]{2,}", text):
         mechanics_errors.append("extra_whitespace")
 
     if re.search(r"\s+[,.!?;:]", text):

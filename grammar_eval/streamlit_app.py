@@ -60,16 +60,26 @@ def highlight_text_with_feedback(original, diffs):
 
     for d in sorted(diffs, key=lambda x: x["orig_span"][0], reverse=True):
         start, end = d["orig_span"]
-        if start == end:
+
+        # 1️⃣ invalid / zero-length span
+        if start >= end:
+            continue
+
+        # 2️⃣ missing or empty corrected text
+        corrected = d.get("corrected")
+        if not corrected or not corrected.strip():
+            continue
+
+        # 3️⃣ punctuation-only junk (’, “, etc.)
+        original_chunk = html[start:end].strip()
+        if len(original_chunk) == 1 and not original_chunk.isalnum():
             continue
 
         color = {
             "replace": "#fff2cc",
             "delete": "#d9e8ff",
             "insert": "#d8f5e1"
-        }.get(d["type"], "#eeeeee")
-
-        corrected = d.get("corrected") or "removed"
+        }.get(d.get("type"), "#eeeeee")
 
         span = (
             f"<span style='background:{color};"
