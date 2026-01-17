@@ -1,0 +1,17 @@
+test_type: summarize_written_text
+
+services:
+  - content
+  - language
+
+aggregation:
+  content:
+    max_score: 6
+    source: content_percentage
+
+  language:
+    grammar_max: 3
+    spelling_max: 1
+    grammar_error_key: grammar_errors
+    spelling_error_key: spelling.count
+    penalty_per_error: 0.5

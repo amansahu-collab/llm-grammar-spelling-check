@@ -1,0 +1,4 @@
+name: language
+url: http://127.0.0.1:8002/evaluate
+timeout: 10
+aggregator: language

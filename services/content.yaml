@@ -1,0 +1,4 @@
+name: content
+url: http://127.0.0.1:8001/evaluate
+timeout: 300
+aggregator: content
