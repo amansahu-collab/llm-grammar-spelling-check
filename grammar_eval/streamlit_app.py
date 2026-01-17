@@ -139,7 +139,13 @@ if st.button("Evaluate"):
         # ---------------------------
         with col2:
             st.subheader("📊 Evaluation")
-            st.metric("Final Score", data["score"])
+            
+            # Display separate scores
+            score_col1, score_col2 = st.columns(2)
+            with score_col1:
+                st.metric("Grammar Score", f"{data['scores']['grammar']}%")
+            with score_col2:
+                st.metric("Spelling Score", f"{data['scores']['spelling']}%")
 
             st.markdown("### Grammar & Usage Errors")
 

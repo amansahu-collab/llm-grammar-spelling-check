@@ -14,7 +14,7 @@ def evaluate_text(text: str) -> dict:
     grammar_errors, mechanics_errors = sanity_check(original, diffs)
     spelling = check_spelling(original)
 
-    score = compute_score(diffs, mechanics_errors, spelling)
+    scores = compute_score(diffs, mechanics_errors, spelling)
 
     return {
         "original": original,
@@ -23,5 +23,5 @@ def evaluate_text(text: str) -> dict:
         "grammar_errors": grammar_errors,
         "mechanics_errors": mechanics_errors,
         "spelling": spelling,
-        "score": score
+        "scores": scores
     }

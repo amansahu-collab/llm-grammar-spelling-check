@@ -10,3 +10,6 @@ class EvalRequest(BaseModel):
 @app.post("/evaluate")
 def evaluate(payload: EvalRequest):
     return evaluate_text(payload.text)
+@app.get("/ping")
+def ping():
+    return {"message": "pong"}
