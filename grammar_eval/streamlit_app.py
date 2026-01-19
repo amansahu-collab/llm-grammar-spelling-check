@@ -8,7 +8,7 @@ API_URL = "http://127.0.0.1:8000/evaluate"
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 st.set_page_config(page_title="Grammar Evaluator", layout="wide")
-st.title("📝 Grammar & Spelling Evaluator v2")
+st.title("📝 Grammar & Spelling Evaluator v2.1")
 
 mode = st.radio(
     "Run mode",
