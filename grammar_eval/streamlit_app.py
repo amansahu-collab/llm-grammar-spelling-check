@@ -22,77 +22,166 @@ text = st.text_area(
     placeholder="Paste student response here..."
 )
 
-# --------------------------------------------------
-# Highlight grammar spans (AUTHORITATIVE)
-# --------------------------------------------------
-def highlight_grammar_spans(text, grammar_errors):
-    html = text
 
-    spans = [
-        g["span"] for g in grammar_errors
-        if isinstance(g, dict) and g.get("span")
-    ]
-
-    # 🔒 IMPORTANT: right-to-left to avoid index shift
-    for span in sorted(spans, key=lambda x: x["start"], reverse=True):
+# --------------------------------------------------
+# Single-pass highlighting with authority rules
+# --------------------------------------------------
+def build_highlighted_html(original_text, grammar_errors, mechanics_errors, spelling_errors, diffs):
+    """
+    Build highlighted HTML in a single pass.
+    
+    Authority order:
+    1. Grammar/mechanics errors (red, solid underline) - AUTHORITATIVE
+    2. Spelling errors (orange, solid underline) - AUTHORITATIVE at word level
+    3. LLM diffs (yellow, dotted underline) - ASSISTIVE only
+    
+    No overlapping spans. Widest span wins.
+    """
+    
+    # Collect all spans with their type and metadata
+    all_spans = []
+    
+    # Grammar errors (highest priority)
+    for error in grammar_errors:
+        span = error.get("span")
+        if span and span.get("start") is not None and span.get("end") is not None:
+            if span["start"] < span["end"]:  # Valid span
+                all_spans.append({
+                    "start": span["start"],
+                    "end": span["end"],
+                    "type": "grammar",
+                    "message": error.get("message", error.get("type", "")),
+                    "suggestion": error.get("suggestion", "")
+                })
+    
+    # Span-based mechanics errors (also red, same priority as grammar)
+    for error in mechanics_errors:
+        if isinstance(error, dict) and error.get("span"):
+            span = error.get("span")
+            if span and span.get("start") is not None and span.get("end") is not None:
+                if span["start"] < span["end"]:
+                    all_spans.append({
+                        "start": span["start"],
+                        "end": span["end"],
+                        "type": "grammar",
+                        "message": error.get("message", error.get("type", "")),
+                        "suggestion": error.get("suggestion", "")
+                    })
+    
+    # Spelling errors (word-level, owns full word)
+    for word_info in spelling_errors:
+        span = word_info.get("span")
+        if span and span.get("start") is not None and span.get("end") is not None:
+            if span["start"] < span["end"]:  # Valid span
+                all_spans.append({
+                    "start": span["start"],
+                    "end": span["end"],
+                    "type": "spelling",
+                    "message": f"Spelling: {word_info.get('word', '')}",
+                    "suggestion": word_info.get("suggestion", "")
+                })
+    
+    # LLM diffs (only if no grammar/spelling overlap)
+    grammar_spelling_spans = set()
+    for sp in all_spans:
+        for i in range(sp["start"], sp["end"]):
+            grammar_spelling_spans.add(i)
+    
+    for diff in diffs:
+        orig_span = diff.get("orig_span")
+        if not orig_span or orig_span[0] >= orig_span[1]:
+            continue
+        
+        start, end = orig_span
+        
+        # Check for overlap with grammar/spelling
+        has_overlap = any(i in grammar_spelling_spans for i in range(start, end))
+        if has_overlap:
+            continue
+        
+        corrected = diff.get("corrected", "").strip()
+        if not corrected or len(corrected) == 1 and not corrected.isalnum():
+            continue
+        
+        all_spans.append({
+            "start": start,
+            "end": end,
+            "type": "llm_diff",
+            "message": f"Suggestion: {corrected}",
+            "suggestion": corrected
+        })
+    
+    # Sort spans by start position (ascending) and by length (descending) to handle nesting
+    all_spans.sort(key=lambda x: (x["start"], -(x["end"] - x["start"])))
+    
+    # Remove overlapping spans (keep wider/earlier spans)
+    filtered_spans = []
+    covered = set()
+    
+    for span in all_spans:
         start, end = span["start"], span["end"]
-
+        
+        # Check if this span overlaps with already-covered positions
+        if any(i in covered for i in range(start, end)):
+            continue
+        
+        filtered_spans.append(span)
+        for i in range(start, end):
+            covered.add(i)
+    
+    # Sort by start position (descending) for right-to-left insertion
+    filtered_spans.sort(key=lambda x: x["start"], reverse=True)
+    
+    # Build HTML with single pass (right-to-left to avoid index shifts)
+    html = original_text
+    
+    for span in filtered_spans:
+        start = span["start"]
+        end = span["end"]
+        text_chunk = original_text[start:end]
+        
+        if span["type"] == "grammar":
+            style = (
+                "background:#ffd6d6;"
+                "padding:2px 4px;"
+                "border-radius:4px;"
+                "border-bottom:2px solid red;"
+                "cursor:help;"
+            )
+            title = span["message"]
+            if span["suggestion"]:
+                title += f" → {span['suggestion']}"
+        
+        elif span["type"] == "spelling":
+            style = (
+                "background:#ffe6cc;"
+                "padding:2px 4px;"
+                "border-radius:4px;"
+                "border-bottom:2px solid #ff9800;"
+                "cursor:help;"
+            )
+            title = span["message"]
+            if span["suggestion"]:
+                title += f" → {span['suggestion']}"
+        
+        else:  # llm_diff
+            style = (
+                "background:#fff2cc;"
+                "padding:2px 4px;"
+                "border-radius:4px;"
+                "border-bottom:2px dotted #555;"
+                "cursor:help;"
+            )
+            title = span["message"]
+        
         marked = (
-            f"<span style='background:#ffd6d6;"
-            f"padding:2px 4px;"
-            f"border-radius:4px;"
-            f"border-bottom:2px solid red;' "
-            f"title='Grammar issue'>"
-            f"{html[start:end]}"
+            f"<span style='{style}' title='{title}'>"
+            f"{text_chunk}"
             f"</span>"
         )
-
+        
         html = html[:start] + marked + html[end:]
-
-    return html
-
-
-# --------------------------------------------------
-# Highlight LLM diffs (fallback only)
-# --------------------------------------------------
-def highlight_text_with_feedback(original, diffs):
-    html = original
-
-    for d in sorted(diffs, key=lambda x: x["orig_span"][0], reverse=True):
-        start, end = d["orig_span"]
-
-        # 1️⃣ invalid / zero-length span
-        if start >= end:
-            continue
-
-        # 2️⃣ missing or empty corrected text
-        corrected = d.get("corrected")
-        if not corrected or not corrected.strip():
-            continue
-
-        # 3️⃣ punctuation-only junk (’, “, etc.)
-        original_chunk = html[start:end].strip()
-        if len(original_chunk) == 1 and not original_chunk.isalnum():
-            continue
-
-        color = {
-            "replace": "#fff2cc",
-            "delete": "#d9e8ff",
-            "insert": "#d8f5e1"
-        }.get(d.get("type"), "#eeeeee")
-
-        span = (
-            f"<span style='background:{color};"
-            f"padding:2px 4px;"
-            f"border-radius:4px;"
-            f"border-bottom:2px dotted #555;' "
-            f"title='Suggestion: {corrected}'>"
-            f"{html[start:end]}"
-            f"</span>"
-        )
-
-        html = html[:start] + span + html[end:]
-
+    
     return html
 
 
@@ -115,22 +204,16 @@ if st.button("Evaluate"):
         with col1:
             st.subheader("📄 Highlighted Text")
 
-            has_grammar_span = any(
-                isinstance(g, dict) and g.get("span")
-                for g in data["grammar_errors"]
+            highlighted_html = build_highlighted_html(
+                data["original"],
+                data["grammar_errors"],
+                data["mechanics_errors"],
+                data["spelling"].get("misspelled_words", []),
+                data["diffs"]
             )
 
-            if has_grammar_span:
-                highlighted = highlight_grammar_spans(
-                    data["original"], data["grammar_errors"]
-                )
-            else:
-                highlighted = highlight_text_with_feedback(
-                    data["original"], data["diffs"]
-                )
-
             st.markdown(
-                f"<div style='font-size:16px; line-height:1.6'>{highlighted}</div>",
+                f"<div style='font-size:16px; line-height:1.6'>{highlighted_html}</div>",
                 unsafe_allow_html=True
             )
 
@@ -149,27 +232,40 @@ if st.button("Evaluate"):
 
             st.markdown("### Grammar & Usage Errors")
 
-            if data["diffs"]:
-                for d in data["diffs"]:
-                    if d["type"] in ("replace", "insert", "delete"):
-                        original = d["original"] or "(missing)"
-                        corrected = d["corrected"] or "(removed)"
-                        st.error(f"{original} → {corrected}")
+            if data["grammar_errors"]:
+                for error in data["grammar_errors"]:
+                    msg = error.get("message", error.get("type", "Grammar issue"))
+                    sug = error.get("suggestion", "")
+                    if sug:
+                        st.error(f"{msg} → {sug}")
+                    else:
+                        st.error(msg)
             else:
-                st.success("No errors detected")
-            
+                st.success("No grammar errors detected")
 
             st.markdown("### Mechanics")
             if data["mechanics_errors"]:
                 for m in data["mechanics_errors"]:
-                    st.warning(m)
+                    if isinstance(m, dict):
+                        # Span-based mechanics error
+                        msg = m.get("message", m.get("type", "Mechanics issue"))
+                        sug = m.get("suggestion", "")
+                        if sug:
+                            st.warning(f"{msg} → {sug}")
+                        else:
+                            st.warning(msg)
+                    else:
+                        # String-based mechanics error
+                        st.warning(m)
             else:
                 st.success("No mechanics issues")
 
             st.markdown("### Spelling")
-            if data["spelling"]["count"] > 0:
-                for w in data["spelling"]["misspelled_words"]:
-                    st.error(w)
+            spelling_words = data["spelling"].get("misspelled_words", [])
+            if spelling_words:
+                for word_info in spelling_words:
+                    word = word_info.get("word", word_info)
+                    st.error(word)
             else:
                 st.success("No spelling mistakes")
 

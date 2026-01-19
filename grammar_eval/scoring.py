@@ -1,28 +1,39 @@
 def compute_score(grammar_errors, mechanics_errors, spelling):
     """
-    Compute separate grammar and spelling scores as percentages (0-100%).
+    Compute grammar and spelling scores as percentages (0-100%).
     
     Grammar Score (0-100%):
-    - 100: No grammar errors
-    - 0-99: Deductions based on error count
+    - Based on BOTH grammar errors AND mechanics errors
+    - Mechanics errors are structural issues that reduce grammar quality
+    - 100: No grammar or mechanics errors
+    - 0-99: Deductions based on combined error count
     
     Spelling Score (0-100%):
+    - Based only on spelling misspelled word count
     - 100: No spelling errors
     - 0-99: Deductions based on misspelled word count
     """
     
     # --------------------
     # Grammar Score (0-100%)
+    # Combine grammar + mechanics (span-based only)
     # --------------------
-    g = len(grammar_errors)
+    grammar_count = len(grammar_errors)
     
-    if g == 0:
+    # Count only span-based mechanics errors (dict with span)
+    mechanics_span_errors = [e for e in mechanics_errors if isinstance(e, dict) and e.get("span")]
+    mechanics_count = len(mechanics_span_errors)
+    
+    # Total errors affecting grammar quality
+    total_errors = grammar_count + mechanics_count
+    
+    if total_errors == 0:
         grammar_score = 100
-    elif g <= 2:
+    elif total_errors <= 2:
         grammar_score = 75
-    elif g <= 5:
+    elif total_errors <= 5:
         grammar_score = 50
-    elif g <= 8:
+    elif total_errors <= 8:
         grammar_score = 25
     else:
         grammar_score = 0
