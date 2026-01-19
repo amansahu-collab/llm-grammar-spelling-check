@@ -193,16 +193,30 @@ def _check_missing_comma(text, doc):
                     })
     
     # Check for participial phrases (VBG) that modify clauses
+    # Only flag TRUE participial clauses, NOT adjectival modifiers
     for token in doc:
         if token.pos_ == "VERB" and token.tag_ == "VBG":
-            # Participial phrase - check if preceded by comma when it modifies main clause
-            if token.idx > 0:
-                text_before = text[max(0, token.idx - 10):token.idx]
-                
-                # If this VBG is at clause boundary without comma
-                if "," not in text_before and len(text_before) > 0 and text_before[-1] not in (" ", ","):
-                    # Check if it's a clause modifier (not a gerund object)
-                    if token.dep_ not in ("obj", "iobj"):
+            # SKIP if this is an adjectival modifier (amod)
+            # These are lexicalized or compound adjectives like "awe-inspiring"
+            if token.dep_ == "amod":
+                continue
+            
+            # SKIP if this VBG is attached to a noun
+            # (it's modifying the noun directly, not a clause)
+            if token.head.pos_ == "NOUN":
+                continue
+            
+            # ONLY flag if:
+            # - Token is a clause modifier (advcl or acl)
+            # - AND the head is ROOT (modifying main clause)
+            # This indicates a true participial phrase needing comma
+            if token.dep_ in ("advcl", "acl") and token.head.dep_ == "ROOT":
+                # Participial phrase modifying main clause
+                if token.idx > 0:
+                    text_before = text[max(0, token.idx - 10):token.idx]
+                    
+                    # Check if comma precedes the participial phrase
+                    if "," not in text_before and len(text_before) > 0 and text_before[-1] not in (" ", ","):
                         errors.append({
                             "type": "missing_comma_before_participle",
                             "span": {
