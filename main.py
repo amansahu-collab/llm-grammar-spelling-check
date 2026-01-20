@@ -117,29 +117,16 @@ async def score(payload: ScoreRequest):
     # --------------------
     # Aggregation
     # --------------------
-    final_score = 0
-    breakdown = {}
-    feedback = {}
+    combined_output = {}
 
     for svc_name, output in service_outputs.items():
         rules = test_cfg["aggregation"][svc_name]
         aggregator = AGGREGATORS[svc_name]
 
         result = aggregator.aggregate(output, rules)
-
-        if svc_name == "content":
-            breakdown["content"] = result["score"]
-            feedback["content"] = result.get("feedback")
-            final_score += result["score"]
-
-        elif svc_name == "language":
-            breakdown["grammar"] = result["grammar_score"]
-            breakdown["spelling"] = result["spelling_score"]
-            final_score += result["grammar_score"] + result["spelling_score"]
+        combined_output[svc_name] = result
 
     return {
-        "total_score": round(final_score, 2),
-        "breakdown": breakdown,
-        "feedback": feedback,
+        "services": combined_output,
         "errors": errors if errors else None
     }
